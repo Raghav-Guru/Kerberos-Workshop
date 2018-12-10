@@ -2,6 +2,7 @@
 
 **Understanding Kerberos authentication:** 
 
+![Kerberos authentication phases](2A4B5189-1078-4EB9-B964-AD103778B05D.png)
   
   **Step 1**. Prepare two hosts with Centos 7 to use as KDC server and a client.
 (Can use KDC server from Openstack and on sqadron create a 3 host cluster with Hadoop Services)
@@ -148,7 +149,7 @@
   
 
 
-
+![Kerberos pre-authentication phases](ACCB4733-017B-4B8D-B61C-385466FEDA54.jpg)
 
 
   **PHASE 2** of kerberos authentication(Requesting service principal)
