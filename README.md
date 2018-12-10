@@ -254,3 +254,241 @@ Append below lines to the end of httpd.conf
     #tshark -r /var/tmp/krb_phase3.pcap
 
   Summarize the kerberos authentication flow as observed from above steps:
+  
+  
+  # LAB 2 : 
+
+**Service/User principals, encryption/decryption and Keyatabs :**
+
+
+In this activity we will create a keytab using dummy user principal and understand how the encryption types effect the kerberos authenticaton flow: 
+
+In LAB 1 we have observed the packet trace in Phase 1, Phase 2 and Phase 3. We can reuse the same packet traces to understand the role of encryption types.
+
+**Step 1:** Execute below command on the tcpdump captured for phase 1: 
+
+    #tshark -r /var/tmp/krb_phase1.pcap -O kerberos 
+
+Here we can observe different fields relates to kerberos client/service principal and encryption types
+
+When client first request for TGT we exchange the info about support encryption types configured in krb5.conf on client. 
+
+        Server Name (Service and Instance): krbtgt/HWX.COM
+            Name-type: Service and Instance (2)
+            Name: krbtgt
+            Name: HWX.COM
+        till: 2018-12-10 17:49:56 (UTC)
+        rtime: 2018-12-16 17:49:56 (UTC)
+        Nonce: 256018256
+        Encryption Types: aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des-cbc-md5-nt 19 des3-cbc-sha1 rc4-hmac 25 26
+
+Response from the KDC will have service ticket for the kdc itself krbtgt/<REALM> Which shows the two parts(client session key and a ticket for krbtgt)
+
+PART 1: 
+
+      Pvno: 5
+        MSG Type: AS-REP (11)
+        padata: PA-ENCTYPE-INFO2
+            Type: PA-ENCTYPE-INFO2 (19)
+                Value: 30073005a003020112 aes256-cts-hmac-sha1-96
+                    Encryption type: aes256-cts-hmac-sha1-96 (18)
+        Client Realm: HWX.COM
+        Client Name (Principal): user2
+            Name-type: Principal (1)
+            Name: raghav
+
+PART 2: 
+
+    Ticket
+        Tkt-vno: 5
+        Realm: HWX.COM
+        Server Name (Service and Instance): krbtgt/HWX.COM
+            Name-type: Service and Instance (2)
+            Name: krbtgt
+            Name: HWX.COM
+        enc-part aes256-cts-hmac-sha1-96
+            Encryption type: aes256-cts-hmac-sha1-96 (18)
+            Kvno: 1
+            enc-part: a29d26347b6fbd9671840af5043edfb997e08e2da137ac9f...
+    enc-part aes256-cts-hmac-sha1-96
+        Encryption type: aes256-cts-hmac-sha1-96 (18)
+        enc-part: d06f49c0855ccaea150a8dae3051ea011ac097e5014485d4...
+
+PART 2 has encrypted part with the type of encryption this can also be seen with "klist -e". Here skey corresponds to the session key of the client i.e., user2 here. and tkt is the encryption time of the ticket received for the service krbtgt. 
+
+    #klist -e
+    Ticket cache: FILE:/tmp/krb5cc_0
+    Default principal: user2@HWX.COM
+    
+    Valid starting       Expires              Service principal
+    12/09/2018 22:42:37  12/10/2018 22:42:36  krbtgt/HWX.COM@HWX.COM
+      renew until 12/09/2018 22:42:37, Etype (skey, tkt): aes256-cts-hmac-sha1-96, aes256-cts-hmac-sha1-96
+
+
+**Note:** Here ticket is two part, a session key for the service and an authenticator. This ticket is encrypted with the password/key of the service principal so only the key of service principal will be able to decrypt it and retrieve the session key and validate the authentication of client. 
+
+
+When this ticket is received by the service, service will decrypt it using the keytab configured for it. For service to decrypt the ticket, it should have a keytab with the required key with the same encryption type as that of ticket. Without the proper encryption key in keytab service will not be able to decrypt it and client will not be able to connect to the service. 
+
+
+Keytabs are nothing but a table with the hashed password using the encryption type defined while creating the keytab. Which we say as long term keys as these keys are valid until their is any change in the password on the account
+
+**Step 2:** Configuration file /etc/krb5.conf is client side config. Configs set in this file are used for requesting the ticket. Configuration includes encryption type/ticket validity. 
+
+Change the krb5.conf to have below properties: 
+
+      ticket_lifetime = 2h
+      [..]
+      default_tgs_enctypes =  aes des3-cbc-sha1 rc4 des-cbc-md5
+      default_tkt_enctypes =  des3-cbc-sha1 rc4 des-cbc-md5
+
+
+**Step 3:** Capture the tcpdump while requesting for ticket. 
+
+        #tcpdump -i eth0 -w /var/tmp/kinit_stage1_3.pcap -s 0 port 88 &
+        #kinit <UserPrincipal>
+        #kvno dummy/<hostname> 
+        fg[CTRL+C]
+        #tshark -r /var/tmp/kinit_stage1_3.pcap -O kerberos
+
+**Step 4:** Review the change in the AS-REQ and the encryption type being requested for user principal and the life time requested. (rtime is 7 days)
+
+        Client Name (Principal): user2
+            Name-type: Principal (1)
+            Name: user2
+        Realm: HWX.COM
+        Server Name (Service and Instance): krbtgt/HWX.COM
+            Name-type: Service and Instance (2)
+            Name: krbtgt
+            Name: HWX.COM
+        till: 2018-12-10 06:21:27 (UTC)
+        rtime: 2018-12-17 04:21:27 (UTC)
+        Nonce: 1643455752
+        Encryption Types: des3-cbc-sha1 rc4-hmac
+            Encryption type: des3-cbc-sha1 (16)
+            Encryption type: rc4-hmac (23)
+
+
+Also review the change in TGS-REQ.
+
+        Realm: RAGHAV.COM
+        Server Name (Principal): dummy/sec-lab3.hwx.com
+            Name-type: Principal (1)
+            Name: dummy
+            Name: sec-lab3.hwx.com
+        till: 2018-12-10 06:21:27 (UTC)
+        Nonce: 1544415690
+        Encryption Types: aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des-cbc-md5-nt 19 des3-cbc-sha1 rc4-hmac
+            Encryption type: aes256-cts-hmac-sha1-96 (18)
+            Encryption type: aes128-cts-hmac-sha1-96 (17)
+            Encryption type: des-cbc-md5-nt (20)
+            Encryption type: Unknown (19)
+            Encryption type: des3-cbc-sha1 (16)
+            Encryption type: rc4-hmac (23)
+
+
+Please review the AS/TGS-RESP which also have the encryption type of tkt provided to the client. For the client to be able to connect to server, the keytab on service side should have the same encryption type of the tkt received. 
+
+**Step 5:** Lets demonstrate common issues with mismatch of encryption type in keytab, try creating the keytab for the HTTP service principal used in LAB 1 with encryption type rc4-hmac.
+
+On KDC change the password for the principal: 
+
+    kadmin.local:  change_password HTTP/<hostname>
+
+On the client use the ktutil to create the keytab using the password: 
+
+    ktutil:
+    :addent -password -p HTTP/<hostname> -e rc4-hmac 
+    password: 
+    :wkt /tmp/httpd.kerberos.keytab
+
+ **Step 5.1**: Replace the httpd.keberos.keytab with the /etc/httpd/apache.httpd.keytab and restart httpd service. 
+
+    #cp /tmp/httpd.kerberos.keytab /etc/httpd/apache.httpd.keytab
+    #service httpd restart
+
+
+**Step 5.2:** Try connecting to the service again using curl command: 
+
+    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #klist -e 
+
+**Step 5.3:** Now add the encryption type which client got to the service keytab. 
+
+    ktutil:
+    :addent -password -p HTTP/<hostname> -e aes256-cts-hmac-sha1-96
+    password: 
+    :wkt /etc/httpd/apache.httpd.keytab
+
+**Step 5.4:** Restart the httpd service and verify if the service is accessible now: 
+
+    #service httpd restart
+    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #klist -e 
+
+**Step 5.5:** Change the encryption type on the principal in kdc.conf 
+
+    [realms]
+     HWX.COM = {
+      #master_key_type = aes256-cts
+      acl_file = /var/kerberos/krb5kdc/kadm5.acl
+      dict_file = /usr/share/dict/words
+      admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+      #supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+      supported_enctypes = arcfour-hmac:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+
+     }
+
+Restart kdc service: 
+
+    #service krb5kdc restart
+
+Recreate dummy service principal to see the change in the encryption keys. 
+
+    kadmin.local
+    kadmin.local:  delprinc dummy/sec-lab3.hwx.com
+    kadmin.local:  addprinc dummy/sec-lab3.hwx.com
+    kadmin.local:  getprinc dummy/sec-lab3.hwx.com
+    Principal: dummy/sec-lab3.raghav.com@HWX.COM
+    Expiration date: [never]
+    Last password change: Mon Dec 10 18:06:23 UTC 2018
+    Password expiration date: [none]
+    Maximum ticket life: 1 day 00:00:00
+    Maximum renewable life: 0 days 00:00:00
+    Last modified: Mon Dec 10 18:06:23 UTC 2018 (root/admin@HWX.COM)
+    Last successful authentication: [never]
+    Last failed authentication: [never]
+    Failed password attempts: 0
+    Number of keys: 3
+    Key: vno 1, arcfour-hmac, no salt
+    Key: vno 1, des-hmac-sha1, no salt
+    Key: vno 1, des-cbc-md5, no salt
+    MKey: vno 1
+    Attributes:
+    Policy: [none]
+
+On the client host try getting the service principal for "dummy/sec-lab3.hwx.com" and note the change in the service ticket. 
+
+
+
+    [root@sec-lab3 ~]# kdestroy
+    [root@sec-lab3 ~]# kinit user2@HWX.COM
+    Password for user2@HWX.COM:
+    [root@sec-lab3 ~]#
+    [root@sec-lab3 ~]#
+    [root@sec-lab3 ~]# kvno dummy/sec-lab3.hwx.com@HWX.COM
+    dummy/sec-lab3.raghav.com@HWX.COM: kvno = 1
+    [root@sec-lab3 ~]# klist -e
+    Ticket cache: FILE:/tmp/krb5cc_0
+    Default principal: user2@HWX.COM
+    
+    Valid starting       Expires              Service principal
+    12/10/2018 18:07:04  12/10/2018 20:07:02  krbtgt/HWX.COM@HWX.COM
+        renew until 12/10/2018 18:07:04, Etype (skey, tkt): des3-cbc-sha1, aes256-cts-hmac-sha1-96
+    12/10/2018 18:07:05  12/10/2018 20:07:02  dummy/sec-lab3.hwx.com@HWX.COM
+        renew until 12/10/2018 18:07:04, Etype (skey, tkt): arcfour-hmac, arcfour-hmac
+
+**Observations**: 
+
+-->Service ticket encryption type is decided by KDC/TGS and the keytabs created on the hosts should have the required encryption types for it to decrypt and allow clients to access the service. 
+-->Client can only request the session key of a particular encryption type based on krb5.conf. 
