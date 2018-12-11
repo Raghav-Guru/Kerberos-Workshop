@@ -37,7 +37,7 @@
   Configure kdc.conf so that keys can be created with different encryption types (rc4-hmac) like below:
 
     [realms]
-    [HWX.COM] = {
+    HWX.COM = {
     master_key_type = aes256-cts
     acl_file = /var/kerberos/krb5kdc/kadm5.acl
     dict_file = /usr/share/dict/words
@@ -58,7 +58,7 @@
     
     [realms]
     
-    [HWX.COM]
+    HWX.COM
     {
      admin_server = <kadmin_server_hostname>
       kdc = <kdc_server_hostname>
@@ -371,7 +371,7 @@ Change the krb5.conf to have below properties:
 
 Also review the change in TGS-REQ.
 
-        Realm: RAGHAV.COM
+        Realm: HWX.COM
         Server Name (Principal): dummy/sec-lab3.hwx.com
             Name-type: Principal (1)
             Name: dummy
@@ -449,7 +449,7 @@ Recreate dummy service principal to see the change in the encryption keys.
     kadmin.local:  delprinc dummy/sec-lab3.hwx.com
     kadmin.local:  addprinc dummy/sec-lab3.hwx.com
     kadmin.local:  getprinc dummy/sec-lab3.hwx.com
-    Principal: dummy/sec-lab3.raghav.com@HWX.COM
+    Principal: dummy/sec-lab3.hwx.com@HWX.COM
     Expiration date: [never]
     Last password change: Mon Dec 10 18:06:23 UTC 2018
     Password expiration date: [none]
@@ -477,7 +477,7 @@ On the client host try getting the service principal for "dummy/sec-lab3.hwx.com
     [root@sec-lab3 ~]#
     [root@sec-lab3 ~]#
     [root@sec-lab3 ~]# kvno dummy/sec-lab3.hwx.com@HWX.COM
-    dummy/sec-lab3.raghav.com@HWX.COM: kvno = 1
+    dummy/sec-lab3.hwx.com@HWX.COM: kvno = 1
     [root@sec-lab3 ~]# klist -e
     Ticket cache: FILE:/tmp/krb5cc_0
     Default principal: user2@HWX.COM
