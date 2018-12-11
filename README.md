@@ -115,15 +115,15 @@
 
 **Step 11**.  Enable Pre-Authentication on the principal created observe the change in the AS request/Response.
 
-    kadmin.local: modprinc +requires_preauth user2@RAGHAV.COM
+    kadmin.local: modprinc +requires_preauth user2@HWX.COM
     kadmin.local:  getprinc user2
-    Principal: user2@RAGHAV.COM
+    Principal: user2@HWX.COM
     Expiration date: [never]
     Last password change: Sun Dec 09 16:40:40 UTC 2018
     Password expiration date: [none]
     Maximum ticket life: 1 day 00:00:00
     Maximum renewable life: 0 days 00:00:00
-    Last modified: Sun Dec 09 22:08:17 UTC 2018 (root/admin@RAGHAV.COM)
+    Last modified: Sun Dec 09 22:08:17 UTC 2018 (root/admin@HWX.COM)
     Last successful authentication: Sun Dec 09 22:42:37 UTC 2018
     Last failed authentication: [never]
     Failed password attempts: 0
@@ -137,7 +137,7 @@
     Policy: [none]
 
     #tcpdump -i eth0 -w krb_phase1_2.pcap -s 0 port 88 &
-    #kinit user2@RAGHAV.COM
+    #kinit user2@HWX.COM
     fg [CTRL+C]
     #tshark -r krb_phase1_2.pcap
     Running as user "root" and group "root". This could be dangerous.
@@ -210,7 +210,7 @@ Append below lines to the end of httpd.conf
     AuthName "Kerberos Login"
     KrbMethodNegotiate On
     KrbMethodK5Passwd Off
-    KrbAuthRealms [EXAMPLE.COM](http://example.com/)
+    KrbAuthRealms HWX.COM
     KrbServiceName HTTP
     Krb5KeyTab /etc/httpd/apache.httpd.keytab
     require valid-user
@@ -250,7 +250,7 @@ Append below lines to the end of httpd.conf
     
 
     #tcpdump -i eth0 -w /var/tmp/krb_phase3.pcap -s 0 port 80
-    #curl —negotiate -u : http://sec-lab1.raghav.com:80/kerberostest/auth_kerb_page.html
+    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
     #tshark -r /var/tmp/krb_phase3.pcap
 
   Summarize the kerberos authentication flow as observed from above steps:
@@ -491,4 +491,132 @@ On the client host try getting the service principal for "dummy/sec-lab3.hwx.com
 **Observations**: 
 
 -->Service ticket encryption type is decided by KDC/TGS and the keytabs created on the hosts should have the required encryption types for it to decrypt and allow clients to access the service. 
+
 -->Client can only request the session key of a particular encryption type based on krb5.conf. 
+
+
+# LAB 3: 
+
+**Cross Realm trust :** 
+
+Cross realm in kerberos is a way to allow user from one realm to authenticate and connect to the service in the other realm. For this lab we should create another KDC server with a different realm name. 
+
+**Step 1:** Install and configured another KDC server with a different realm name. Something like LABREALM.COM. Follow the same steps(1 and 3) in LAB 1. 
+
+**Step 2:** Create a unique user in the LABREALM.COM to use for our testing. 
+
+    #kadmin.local
+    kadmin.local: listprincs
+    kadmin.local: addprinc lab-user@LABREALM.COM
+
+Step 3: Configure the client host with the new realm. 
+
+    #vi /etc/krb5.conf 
+    [...]
+     LABREALM.COM = {
+      kdc = <New-KDC-Host>
+      admin_server = <New-KDC-Host>
+     }
+
+Make sure that you are able to do kinit on the client with LABREALM.COM user. 
+
+    #kinit lab-user@LABREALM.COM
+
+
+Trust can be created as one-way  or two-way trust. A one-way trust is to allow users to access services from remote realm, so that any user authenticated in REALM1 will be able to access services in REALM2. But REALM2 users cannot access REALM1 services. 
+
+-Trust between the KDC/REALM is established by creating a special principal in both the KDC's with same password/key. 
+
+Principal '**krbtgt/HWX.COM@LABREALM.COM',** this principal would mean the users of LABREALM.COM are allowed to be access services on HWX.COM
+
+
+**Step 4:** Create the krbtgt principal on both the KDC with the same password. 
+
+    #kadmin.local
+    kadmin.local:  addprinc krbtgt/HWX.COM@LABREALM.COM
+
+**Step 5:** Authenticate with the LABREALM.COM user and try accessing the http service running on the HWX.COM realm.
+
+    #export KRB_TRACE=/var/tmp/cross_realm-debug.txt
+    #kinit lab-user@LABREALM.COM
+    #curl --neogitate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #unset KRB_TRACE
+
+(make sure that hostname entries of remote KDC is added in the client's /etc/hosts)
+
+Review the debug log /var/tmp/cross_realm-debug.txt. 
+
+
+# LAB 4: 
+
+Install HDP and enable kerberos : 
+
+**Step 1:** Install HDP cluster and enable kerberos using HWX.COM REALM. Follow the documentation.
+
+https://docs.hortonworks.com/HDPDocuments/Ambari-2.6.2.2/bk_ambari-security/content/running_the_kerberos_wizard.html
+
+**Step 2:** Review the Amabri server logs , find the command being used by ambari to create the principals for services. 
+
+**Step 3 :** Enable spnego authentication on HDFS,YARN and MR UIs. 
+https://docs.hortonworks.com/HDPDocuments/Ambari-2.6.2.2/bk_ambari-security/content/configure_ambari_server_for_authenticated_http.html
+
+
+**Step 4 :** From one of the cluster hosts, submit a MR job by using user created in HWX.COM REALM. 
+
+    #kinit user1@HWX.COM
+    #cd /usr/hdp/current/hadoop-mapreduce-client/
+    #yarn jar hadoop-mapreduce-examples.jar
+    #yarn jar hadoop-mapreduce-examples.jar pi  10 10
+
+Fix any issues faced while running above job. 
+
+**Step 5:** While job is being executed, access the RM UI  and review the job being execute.(You may need to setup your browsers/Laptop to access ).
+
+   **Step 5.1:** Copy the /etc/krb5.conf file from the cluster host to your local laptop. 
+   **Step 5.2:** Configure your laptopt to use the new configuration and get the kerberos ticket for the user in HWX.COM Realm. 
+
+          #export KRB5_CONFIG=<PathOnLocalHost>/krb5.conf
+          #kinit <user>@HWX.COM
+**Step 5.3:** Configure your firefox broswer to set below properties and access the RM UI. 
+              In browser URL bar type "about:config" and search for the properties negotiate-urls. Ste the values of this to the domain name of your cluster hosts. 
+
+**Step 6:**  SPNEGO Authentication:
+ SPNEGO is a standard to use with web-application access using kerberos tokens. 
+
+   **Step 6.1:** To observe the spnego authentication lets create a simple java code which can be used to access spnego enabled http urls.  Create a JAAS file (will be discussed in next LAB)
+
+         # vi login.conf
+             com.sun.security.jgss.krb5.initiate {
+             com.sun.security.auth.module.Krb5LoginModule required
+             useKeyTab=true keyTab="<userKeyab>" principal="<UserPrincipal>" doNotPrompt=false useTicketCache=false;
+             };
+
+ **Step 6.2:** Create a simple java code which can be used to access the http urls
+
+    #vi HttpSpnego.java
+    
+      import java.io.BufferedReader;
+      import java.io.InputStream;
+      import java.io.InputStreamReader;
+      import java.net.URL;
+      
+      public class HttpSpnego {
+   
+          public static void main(String[] args) throws Exception {
+              URL url = new URL(args[0]);
+              InputStream ins = url.openConnection().getInputStream();
+              BufferedReader reader = new BufferedReader(new InputStreamReader(ins));
+              String str;
+              while((str = reader.readLine()) != null)
+                  System.out.println(str);
+          }
+      }
+
+Step 7: Access the spnego enabled url using below command. 
+
+
+    #<JAVA_HOME>/bin/javac HttpSpnego.java
+    #<JAVA_HOME>/bin/java -Dsun.security.krb5.debug=true -Djava.security.krb5.conf=/etc/krb5.conf -Djava.security.auth.login.config=login.conf -Djavax.security.auth.useSubjectCredsOnly=false RunHttpSpnego http://<hostname>:<port>/<pathToAccess>
+
+Review the debug to understand the spnego authentication while accessing the webhdfs url. 
+
