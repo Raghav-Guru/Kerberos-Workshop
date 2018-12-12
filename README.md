@@ -222,7 +222,7 @@ Review the kadm5.acl, refer documentation for possible acl and the format.
     
 
     #klist
-    #tcpdump -r eth0 -w /var/tmp/krb_phase2.pcap port 88 &
+    #tcpdump -i eth0 -w /var/tmp/krb_phase2.pcap port 88 &
     #kvno dummy/<hostname>@HWX.COM
     fg [CTRL+C]
     
