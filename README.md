@@ -687,24 +687,24 @@ auth_to_local rules format is something like below:
     RULE:[1:$1@$0](hbase-c416@HWX.COM)s/.*/hbase/
     RULE:[2:$1@$0](hive@HWX.COM)s/.*/hive/
 
-A generic format "RULE:[n:string](regexp)s/pattern/replacement/" n represents how many components in the principal.
+A generic format "RULE:[n:string] (regexp)s/pattern/replacement/" 
 
-For a kerberos principal "n" can be 1 or 2. For a user principal we have 1 component and for a service princial 2
+"n" represents how many components in the principal.For a user principal we have 1 component so n will be set to 1 and for a service princial 2.
 
    user1@HWX.COM  Can be represented as $1@$0 (REALM is always $0) 
 
 Consider below rule for a user
 
-RULE:[1:$1@$0](user1@HWX.COM)s/.*/user1/  
+RULE:[1:$1@$0] (user1@HWX.COM)s/.*/user1/  
 
-[1:$1@$0]  ==> Would define the rule for principal with 1 component, to match this when the principal has $1(firstComponent)@$0(Realm)
-(user1@HWX.COM)s/.*/user1/ ==> Once the rule is matched we apply following regex to convert anything to user1.
+ [1:$1@$0] ==> Would define the rule for principal with 1 component, to match this when the principal has $1(firstComponent)@$0(Realm)
+(user1@HWX.COM)s/.*/user1/  Once the rule is matched we apply following regex to convert anything to user1.
 
 When a user with principal user1@HWX.COM tries to access the hadoop services, this rule will be evaluated to represent the authenticated principal to posix username "user1"
 
 Similarly we can do the same for service principal. Service principal has two parts "serviceName" and "Hostname" like hive/<c416-node3.hwx.com>@<REALM>. To match the rule for a service principal we should have RULE:[2:$1@$0] which says the rule is for any principal with two parts and rewrite that principal in the format $1==>"serviceName"@$0==>Realm follow by regular expression to convert the rewritten value to get the short ID. 
 
-RULE:[2:$1@$0](hive@HWX.COM)s/.*/hive/
+RULE:[2:$1@$0] (hive@HWX.COM)s/.*/hive/
 
 This rule will represent any service principal of format hive/<hostname>@HWX.COM to "hive". 
 
