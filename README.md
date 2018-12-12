@@ -272,7 +272,7 @@ Append below lines to the end of httpd.conf
   Create the HTML page to test kerberos authentication: 
 
     #mkdir -p /var/www/html/kerberostest
-    #vim /etc/httpd//kerberostest/auth_kerb_page.html
+    #vim /var/www/html/kerberostest/auth_kerb_page.html
     <html>
     <body>
     <h1>HTTPD kerberos authentication test!!</h1>
