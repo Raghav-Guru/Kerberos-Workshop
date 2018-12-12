@@ -451,7 +451,7 @@ On KDC change the password for the principal:
 On the client use the ktutil to create the keytab using the password: 
 
     ktutil:
-    :addent -password -p HTTP/<hostname> -kvno 1 -e rc4-hmac 
+    :addent -password -p HTTP/<hostname> -k <kvno> -e rc4-hmac 
     password: 
     :wkt /tmp/httpd.kerberos.keytab
 
@@ -469,7 +469,7 @@ On the client use the ktutil to create the keytab using the password:
 **Step 5.3:** Now add the encryption type which client got to the service keytab. 
 
     ktutil:
-    :addent -password -p HTTP/<hostname> -e aes256-cts-hmac-sha1-96
+    :addent -password -p HTTP/<hostname> -k <kvno>-e aes256-cts-hmac-sha1-96
     password: 
     :wkt /etc/httpd/apache.httpd.keytab
 
