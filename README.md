@@ -451,7 +451,7 @@ On KDC change the password for the principal:
 On the client use the ktutil to create the keytab using the password: 
 
     ktutil:
-    :addent -password -p HTTP/<hostname> -e rc4-hmac 
+    :addent -password -p HTTP/<hostname> -kvno 1 -e rc4-hmac 
     password: 
     :wkt /tmp/httpd.kerberos.keytab
 
