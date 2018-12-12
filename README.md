@@ -1,6 +1,6 @@
 # KERBEROS WORKSHOP
 
-In this workshop we will configure and understand kerberos authentication and we use it in our Hadoop environment. For this workshop please configure 2 HDP clusters in Squadron. We will use Ambari servers of both the clusters as KDC server and one of the node as KDC client. 
+In this workshop we will configure and understand kerberos authentication to use with Hadoop environment. For this workshop configure 2 HDP clusters in Squadron. We will use Ambari servers of both the clusters as KDC and one of the node as KDC client.
 
  - [LAB 1](#lab-1)
 
