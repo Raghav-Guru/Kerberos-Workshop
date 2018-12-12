@@ -303,7 +303,7 @@ Append below lines to the end of httpd.conf
     
 
     #tcpdump -i eth0 -w /var/tmp/krb_phase3.pcap -s 0 port 80
-    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #curl --negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
     #tshark -r /var/tmp/krb_phase3.pcap
 
   Summarize the kerberos authentication flow as observed from above steps:
@@ -463,7 +463,7 @@ On the client use the ktutil to create the keytab using the password:
 
 **Step 5.2:** Try connecting to the service again using curl command: 
 
-    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #curl --negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
     #klist -e 
 
 **Step 5.3:** Now add the encryption type which client got to the service keytab. 
@@ -476,7 +476,7 @@ On the client use the ktutil to create the keytab using the password:
 **Step 5.4:** Restart the httpd service and verify if the service is accessible now: 
 
     #service httpd restart
-    #curl —negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
+    #curl --negotiate -u : http://sec-lab1.hwx.com:80/kerberostest/auth_kerb_page.html
     #klist -e 
 
 **Step 5.5:** Change the encryption type on the principal in kdc.conf 
