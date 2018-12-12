@@ -1,3 +1,41 @@
+# KERBEROS WORKSHOP
+
+In this workshop we will configure and understand kerberos authentication and we use it in our Hadoop environment. For this workshop please configure 2 HDP clusters in Squadron. We will use Ambari servers of both the clusters as KDC server and one of the node as KDC client. 
+
+ - [LAB 1](#lab-1)
+
+     * Install and configure KDC.
+     * Understanding different phases of kerberos authentication with packet trace. 
+     
+
+ -  [LAB 2](#lab-2)
+
+      * Understanding the  encryption types. 
+      * Configuring the KDC/Client to work with different encryption types.
+
+ - [LAB 3](#lab-3)
+
+ 
+      * Setup Cross Realm trust in kerberos.
+      * Troubleshooting cross relam issues. 
+
+ - [LAB 4](#lab-4)
+
+      * Enable kerberos on HDP cluster with the respective KDC servers
+      * Configuring SPNEGO authentication for HDFS/YARN/MR UI and access it from local hosts.
+      * Troubleshooting SPNEGO authentication and recreating some common issues. 
+
+ - [LAB 5](#lab-5)
+
+      * Understanding auth_to_local rules and how to  configured in a cross realm environment. 
+      * Delegation token concept using oozie to understand how different kind of delegation tokens use while running jobs. 
+
+
+
+
+
+
+
 # **LAB 1:** 
 
 **Understanding Kerberos authentication:** 
@@ -9,19 +47,30 @@
 
   
 
-**Step 2**. On one host install and configure KDC. (Change the realm name)
+**Step 2**. On one host install and configure KDC with realm name HWX.COM.
 
     #yum install krb5-server krb5-libs krb5-workstation
-    #vi /etc/krb5.conf
+    #vi /etc/krb5.conf 
+    [...]
+    default_realm=HWX.COM
+
+    [realms]
+    HWX.COM {
+      kdc=<Hostname>
+      admin_server=<Hostname>
+    }
+
+
     #kdb5_util create -s
     #service krb5kdc start
     #service kadmin start
 
-**Step 3**. Create a user principal.
+**Step 3**. Create a user principal and a admin principal.
 
     #kadmin.local
     kadmin.local: listprincs
-    kadmin.local: addprinc user1@<REALM>
+    kadmin.local: addprinc user1@HWX.COM
+    kadmin.local: addprinc admin/admin@HWX.COM
 
   
 
@@ -47,15 +96,19 @@
 
   
 
-**Step 5**. Review the kadm5.acl, refer documentation for possible acl and the format.
+Review the kadm5.acl, refer documentation for possible acl and the format.
 
  [https://web.mit.edu/kerberos/krb5-1.12/doc/admin/conf_files/kadm5_acl.html](https://web.mit.edu/kerberos/krb5-1.12/doc/admin/conf_files/kadm5_acl.html)
 
- On client install the krb5 client pkgs and configured krb5.conf.
+**Step 5**. On client install the krb5 client pkgs and configured krb5.conf.
 
     #yum install krb5-libs krb5-workstation
 (Update krb5.conf with REALM and kdc info)
-    
+    #vi /etc/krb5.conf
+    [...]
+    default_realm=HWX.COM
+    [..]
+
     [realms]
     
     HWX.COM
@@ -161,7 +214,7 @@
 **Step 12**.  On kdc login to kadmin prompt and create a dummy service principal:
     
     #kadmin.local
-    kadmin.local: addprinc dummy/<hostname>@<REALM>
+    kadmin.local: addprinc dummy/<hostname>@HWX.COM
 
   
 
@@ -170,7 +223,7 @@
 
     #klist
     #tcpdump -r eth0 -w /var/tmp/krb_phase2.pcap port 88 &
-    #kvno dummy/<hostname>@<REALM>
+    #kvno dummy/<hostname>@HWX.COM
     fg [CTRL+C]
     
     #tshark -r /var/tmp/krb_phase2.pcap
@@ -256,7 +309,7 @@ Append below lines to the end of httpd.conf
   Summarize the kerberos authentication flow as observed from above steps:
   
   
-  # LAB 2 : 
+  # LAB 2: 
 
 **Service/User principals, encryption/decryption and Keyatabs :**
 
@@ -389,7 +442,7 @@ Also review the change in TGS-REQ.
 
 Please review the AS/TGS-RESP which also have the encryption type of tkt provided to the client. For the client to be able to connect to server, the keytab on service side should have the same encryption type of the tkt received. 
 
-**Step 5:** Lets demonstrate common issues with mismatch of encryption type in keytab, try creating the keytab for the HTTP service principal used in LAB 1 with encryption type rc4-hmac.
+**Step 5:** In this step we demonstrate common issues with mismatch of encryption type in keytab. Try creating the keytab for the HTTP service principal used in LAB 1 with encryption type rc4-hmac.
 
 On KDC change the password for the principal: 
 
@@ -612,11 +665,121 @@ Fix any issues faced while running above job.
           }
       }
 
-Step 7: Access the spnego enabled url using below command. 
+**Step 7:** Access the spnego enabled url using below command. 
 
 
     #<JAVA_HOME>/bin/javac HttpSpnego.java
     #<JAVA_HOME>/bin/java -Dsun.security.krb5.debug=true -Djava.security.krb5.conf=/etc/krb5.conf -Djava.security.auth.login.config=login.conf -Djavax.security.auth.useSubjectCredsOnly=false RunHttpSpnego http://<hostname>:<port>/<pathToAccess>
 
 Review the debug to understand the spnego authentication while accessing the webhdfs url. 
+
+# LAB 5: 
+
+**Kerberos auth_to_local rules and delegation tokens in Hadoop:**
+
+With Kerberos authentication, any user authenticated will be represented with the FQDN name like user1@<Domain>.com which is not a standard posix account and might not exist on the hosts. auth_to_local rules gives us a way to map posix standard usernames to the authenticated principal. 
+
+For example if a user authenticating with the principal user1@lab.com can be mapped to a username like "user1". So anything accessed after authenticating with the principal will be accessed as "user1". 
+
+auth_to_local rules format is something like below: 
+
+    RULE:[1:$1@$0](.*@HWX.COM)s/@.*//
+    RULE:[1:$1@$0](hbase-c416@HWX.COM)s/.*/hbase/
+    RULE:[2:$1@$0](hive@HWX.COM)s/.*/hive/
+
+A generic format "RULE:[n:string](regexp)s/pattern/replacement/" n represents how many components in the principal.
+
+For a kerberos principal "n" can be 1 or 2. For a user principal we have 1 component and for a service princial 2
+
+   user1@HWX.COM  Can be represented as $1@$0 (REALM is always $0) 
+
+Consider below rule for a user
+
+RULE:[1:$1@$0](user1@HWX.COM)s/.*/user1/  
+
+[1:$1@$0]  ==> Would define the rule for principal with 1 component, to match this when the principal has $1(firstComponent)@$0(Realm)
+(user1@HWX.COM)s/.*/user1/ ==> Once the rule is matched we apply following regex to convert anything to user1.
+
+When a user with principal user1@HWX.COM tries to access the hadoop services, this rule will be evaluated to represent the authenticated principal to posix username "user1"
+
+Similarly we can do the same for service principal. Service principal has two parts "serviceName" and "Hostname" like hive/<c416-node3.hwx.com>@<REALM>. To match the rule for a service principal we should have RULE:[2:$1@$0] which says the rule is for any principal with two parts and rewrite that principal in the format $1==>"serviceName"@$0==>Realm follow by regular expression to convert the rewritten value to get the short ID. 
+
+RULE:[2:$1@$0](hive@HWX.COM)s/.*/hive/
+
+This rule will represent any service principal of format hive/<hostname>@HWX.COM to "hive". 
+
+
+**Step 1:**  Kinit with dummy service principal and try uploading a file to hdfs and see what username  the file is created
+
+    #kinit dummy/<hostname>@<REALM>
+    #hdfs dfs -put /etc/passwd /tmp
+    #hdfs dfs -ls /tmp
+
+**Step 2:** Write the RULE and add in core-site auth_to_local to convert the principal  dummy/<hostname>@<REALM> to "dummy"
+
+**Step 3:** Restart the namenode service and try uploading the file with kinit as dummy service principal. 
+
+    #kinit dummy/<hostname>@<REALM>
+    #hdfs dfs -put /var/log/messages /tmp
+    #hdfs dfs -ls /tmp
+
+Delegation token concept was introduced to reduce the number of request to KDC server for kerberos authentication. As you have observed we had to get the initial tgt and then service ticket to connect to hdfs, this might not result in huge requests. But if a job is submitted in a kerberized cluster, it might cause issue with KDC being overloaded to serve request for every connection involved in running the job. 
+
+**Step 4:** Get the delegation token from namenode, and access the hdfs without kerberos credentialls
+
+    #kinit <UserPrincipal>
+    #hdfs fetchdt --renewer hdfs /var/tmp/dt.token
+    #export HADOOP_TOKEN_FILE_LOCATION=/var/tmp/dt.token
+    #kdestroy
+    #hdfs dfs -ls /
+
+**Step 5:** Enable debug logs and note how delegation token file is used to access hdfs. 
+
+    #export HADOOP_ROOT_LOGGER=DEBUG,console
+    #hdfs dfs -ls /
+
+**Step 6:** Submit a yarn job and observe how delegation token is being requested and used further to authenticate and connect to namenode while running the job. 
+
+    #kinit <user>
+    #yarn jar hadoop-mapreduce-examples.jar pi  10 10
+
+
+All the required delegation tokens are obtained when the job start and will be renewed after that until the lifetime. While running the job, we assign a user as renewer to renew token before it gets expired. Usually with jobs being submitted to yarn, renewer is set to "yarn" and yarn user will keep the token renewed until the job completes (which should be before token lifetime). 
+
+
+# LAB 5.1 : 
+
+   We will use oozie to submit job using delegation token. Here we will use Ambari workflow manager to create oozie workflow and submit a yarn job to access hive. 
+
+   **Step 1:**  Install Oozie and Hive services from Ambari. 
+   **Step 2:**  Create a new workflow manager view. 
+   **Step 3:**  Access workflow manager and create a hive action:
+   
+   ![Access Workflow Manager](HS2-action1)  
+
+  **Step 3.1:** Create new workflow: 
+  
+   ![Create Workflow ](HS2-action2) 
+
+  **Step 3.2:** Add Hive2 Action to the workflow: 
+  
+  ![Create Hive2 Action](HS2-action3)  
+
+   **Step 3.3:** Create credentials, here this defines how Oozie will connect to end services. This credentails will be added to the workflow to request a specific type of delegation token for the service host. 
+
+   ![Create credentials](HS2-action4) 
+
+   ![Create credentials](HS2-action5) 
+
+  ![Create credentials](HS2-action6) 
+
+  ![Create credentials](HS2-action7)  
+
+  **Step 3.4:** Add the created credentials to our workflow to use with HS2 authentication. 
+  
+  ![Add credentials to workflow](HS2-action8)  
+
+**Step 3.5:** Submit and run the workflow and review the yarn logs of the Oozie job to see what type of delegation tokens are being requested. 
+
+   ![Add credentials to workflow](HS2-action9) 
 
