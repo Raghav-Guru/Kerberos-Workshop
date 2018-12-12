@@ -628,7 +628,7 @@ Fix any issues faced while running above job.
    **Step 5.1:** Copy the /etc/krb5.conf file from the cluster host to your local laptop. 
    **Step 5.2:** Configure your laptopt to use the new configuration and get the kerberos ticket for the user in HWX.COM Realm. 
 
-          #export KRB5_CONFIG=<PathOnLocalHost>/krb5.conf
+          #sudo vi /etc/krb5.conf
           #kinit <user>@HWX.COM
 **Step 5.3:** Configure your firefox broswer to set below properties and access the RM UI. 
               In browser URL bar type "about:config" and search for the properties negotiate-urls. Ste the values of this to the domain name of your cluster hosts. 
