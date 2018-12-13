@@ -669,7 +669,7 @@ Fix any issues faced while running above job.
 
 
     #<JAVA_HOME>/bin/javac HttpSpnego.java
-    #<JAVA_HOME>/bin/java -Dsun.security.krb5.debug=true -Djava.security.krb5.conf=/etc/krb5.conf -Djava.security.auth.login.config=login.conf -Djavax.security.auth.useSubjectCredsOnly=false RunHttpSpnego http://<hostname>:<port>/<pathToAccess>
+    #<JAVA_HOME>/bin/java -Dsun.security.krb5.debug=true -Djava.security.krb5.conf=/etc/krb5.conf -Djava.security.auth.login.config=login.conf -Djavax.security.auth.useSubjectCredsOnly=false HttpSpnego http://<hostname>:<port>/<pathToAccess>
 
 Review the debug to understand the spnego authentication while accessing the webhdfs url. 
 
